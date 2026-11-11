@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "laroz-api-v2",
+  "main": "./worker.js",
+  "compatibility_date": "2026-11-11",
+  "workers_dev": true,
+  "keep_vars": true,
+  "vars": {
+    "PHONE_NUMBER_ID": "1366379429899651",
+    "WHATSAPP_TO": "201066124091",
+    "META_API_VERSION": "v25.0",
+    "ALLOWED_ORIGINS": "https://hosnii0.github.io",
+    "ENABLE_ORDER_SENDING": "false"
+  }
+}

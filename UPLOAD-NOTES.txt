@@ -1,0 +1,25 @@
+FRESH DEPLOYMENT: Laroz V2
+
+GitHub repository to create: laroz-v2
+Cloudflare Worker name: laroz-api-v2
+
+The existing repository hosnii0/laroz and Worker laroz are backups. Do not delete them.
+
+Upload all files in this folder to the ROOT of the new laroz-v2 repository.
+Enable GitHub Pages from main / (root).
+Connect the NEW repository to a NEW Cloudflare Worker named laroz-api-v2.
+Build command: leave blank / none
+Deploy command: npx wrangler deploy
+Root directory: /
+
+The frontend is already configured to call:
+https://laroz-api-v2.hosniimohamed00.workers.dev
+
+Runtime secret required on the new Worker:
+WHATSAPP_TOKEN = a newly generated Meta token (never place it in GitHub)
+
+Runtime variables are included in wrangler.jsonc:
+PHONE_NUMBER_ID, WHATSAPP_TO, META_API_VERSION, ALLOWED_ORIGINS, ENABLE_ORDER_SENDING=false.
+
+The test checkout POSTs /api/orders-test and sends hello_world to WHATSAPP_TO.
+The order-details route remains disabled until Meta approves the custom template.
