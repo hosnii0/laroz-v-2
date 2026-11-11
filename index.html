@@ -88,6 +88,14 @@ main{max-width:1000px;margin:auto;padding:16px}
 .toast.on{opacity:1}
 .foot select{width:100%;border:1.5px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;font:inherit;background:var(--bg);color:var(--text)}
 .copy{background:var(--orange);color:var(--deep);min-height:44px}
+/* ---- Mobile checkout scrolling + virtual keyboard support ---- */
+:root{--laroz-visual-height:100dvh}
+.sheet{height:min(88dvh,calc(var(--laroz-visual-height) - 12px));max-height:var(--laroz-visual-height)}
+.sheet header{flex:0 0 auto}
+.items{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y}
+.foot{flex:0 1 auto;min-height:0;max-height:min(64dvh,calc(var(--laroz-visual-height) - 84px));overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;scrollbar-width:thin;scrollbar-color:var(--sage) transparent}
+.foot input,.foot textarea,.foot select{scroll-margin-block:16px}
+@media (min-width:720px){.sheet{height:auto;max-height:100dvh}.foot{max-height:calc(var(--laroz-visual-height) - 110px)}}
 .vb{min-width:0;padding:0 10px;font-size:14px}
 .row:has(.vb){flex-wrap:wrap}
 .hello{position:relative;isolation:isolate;overflow:hidden;padding:4px 0}
@@ -213,6 +221,59 @@ body{font-family:Nunito,Cairo,system-ui,sans-serif}
 .success-order,.success-total{display:flex;justify-content:space-between;gap:12px;padding:12px 4px;border-top:1px solid var(--line);text-align:right}
 .success-order strong,.success-total strong{direction:ltr;unicode-bidi:plaintext}
 .success-card .wa{margin-top:16px}
+
+
+/* ---- Checkout scroll fix: one scroll container for the whole sheet ---- */
+#sheet {
+  height: min(88vh, calc(var(--laroz-visual-height, 100dvh) - 12px));
+  height: min(88dvh, calc(var(--laroz-visual-height, 100dvh) - 12px));
+  max-height: calc(var(--laroz-visual-height, 100dvh) - 12px);
+  min-height: 0;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  scrollbar-width: thin;
+  scrollbar-color: var(--sage) transparent;
+}
+#sheet > header {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  flex: 0 0 auto;
+}
+#sheet > .items {
+  flex: 0 0 auto !important;
+  min-height: 0;
+  overflow: visible !important;
+  overscroll-behavior: auto;
+  -webkit-overflow-scrolling: auto;
+  touch-action: auto;
+}
+#sheet > .foot {
+  flex: 0 0 auto !important;
+  min-height: 0;
+  max-height: none !important;
+  overflow: visible !important;
+  overscroll-behavior: auto;
+  -webkit-overflow-scrolling: auto;
+  touch-action: auto;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+}
+#sheet .field input,
+#sheet .field textarea,
+#sheet .field select {
+  scroll-margin-block: 18px;
+}
+@media (min-width: 720px) {
+  #sheet {
+    height: auto;
+    max-height: 100dvh;
+    overflow-y: auto !important;
+  }
+  #sheet > .foot { max-height: none !important; }
+}
 
 </style>
 </head>
@@ -411,6 +472,80 @@ function setQty(k,v){
   cart[k]=v; save(); renderCart(); const q=document.querySelector(`[data-q="${k}"]`); if(q) bump(q);
 }
 function openCart(o){ $("sheet").classList.toggle("on",o); $("overlay").classList.toggle("on",o); if(o) $("closeCart").focus(); }
+
+/* Keep the checkout sheet inside the actually visible area when the mobile keyboard opens. */
+(function setupCheckoutScrolling(){
+  const sheet = $("sheet");
+  let focusedField = null;
+  const visualViewport = window.visualViewport;
+  let revealTimers = [];
+
+  function scheduleReveal(){
+    revealTimers.forEach(clearTimeout);
+    revealTimers = [
+      setTimeout(revealFocusedField, 80),
+      setTimeout(revealFocusedField, 220),
+      setTimeout(revealFocusedField, 420)
+    ];
+  }
+
+  function syncVisibleHeight(){
+    const height = visualViewport ? visualViewport.height : window.innerHeight;
+    document.documentElement.style.setProperty(
+      "--laroz-visual-height",
+      `${Math.max(280, Math.round(height))}px`
+    );
+    if (focusedField) requestAnimationFrame(scheduleReveal);
+  }
+
+  function revealFocusedField(){
+    if (!focusedField || !sheet.contains(focusedField) || !sheet.classList.contains("on")) return;
+
+    const field = focusedField.getBoundingClientRect();
+    const panel = sheet.getBoundingClientRect();
+    const topLimit = panel.top + 64;
+    const bottomLimit = panel.bottom - 24;
+    let delta = 0;
+
+    if (field.bottom > bottomLimit) {
+      delta = field.bottom - bottomLimit + 22;
+    } else if (field.top < topLimit) {
+      delta = field.top - topLimit - 18;
+    }
+
+    if (delta) {
+      sheet.scrollBy({ top: delta, behavior: "smooth" });
+    }
+  }
+
+  sheet.addEventListener("focusin", event => {
+    if (event.target.matches("input, textarea, select")) {
+      focusedField = event.target;
+      scheduleReveal();
+    }
+  });
+
+  sheet.addEventListener("focusout", event => {
+    if (event.target === focusedField) {
+      setTimeout(() => {
+        const activeElement = document.activeElement;
+        if (!sheet.contains(activeElement)) {
+          focusedField = null;
+        } else if (activeElement.matches?.("input, textarea, select")) {
+          focusedField = activeElement;
+          scheduleReveal();
+        }
+      }, 100);
+    }
+  });
+
+  syncVisibleHeight();
+  window.addEventListener("resize", syncVisibleHeight, { passive: true });
+  if (visualViewport) {
+    visualViewport.addEventListener("resize", syncVisibleHeight, { passive: true });
+    visualViewport.addEventListener("scroll", syncVisibleHeight, { passive: true });
+  }
+})();
 
 /* ============ WHATSAPP ============ */
 function makeOrderId(){return "LZ-"+Date.now().toString(36).toUpperCase()+"-"+Math.random().toString(36).slice(2,6).toUpperCase();}
